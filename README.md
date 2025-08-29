@@ -1,4 +1,4 @@
-# Teamgram - Unofficial open source [mtproto](https://core.telegram.org/mtproto) server written in golang
+# Zerokey - Unofficial open source [mtproto](https://core.telegram.org/mtproto) server written in golang
 > open source mtproto server implemented in golang with compatible telegram client.
 
 ## Introduce
@@ -18,8 +18,8 @@ Open source [mtproto](https://core.telegram.org/mtproto) server implementation w
 ## Architecture
 ![Architecture](docs/image/architecture-001.png)
 
-## Installing Teamgram 
-`Teamgram` relies on open source high-performance components: 
+## Installing Zerokey 
+`Zerokey` relies on open source high-performance components: 
 
 - **mysql5.7**
 - [redis](https://redis.io/)
@@ -28,10 +28,10 @@ Open source [mtproto](https://core.telegram.org/mtproto) server implementation w
 - [minio](https://docs.min.io/docs/minio-quickstart-guide.html#GNU/Linux)
 - [ffmpeg](https://www.johnvansickle.com/ffmpeg/)
 
-Privatization deployment Before `Teamgram`, please make sure that the above five components have been installed. If your server does not have the above components, you must first install Missing components. 
+Before deployment `Zerokey`, please make sure that the above five components have been installed. If your server does not have the above components, you must first install Missing components. 
 
 - [Centos9 Stream Build and Install](docs/install-centos-9.md) [@A Feel]
-- [CentOS7 teamgram-server环境搭建](docs/install-centos-7.md) [@saeipi]
+- [CentOS7 ](docs/install-centos-7.md) [@saeipi]
 
 If you have the above components, it is recommended to use them directly. If not, it is recommended to use `docker-compose-env.yaml`.
 
@@ -44,7 +44,7 @@ If you have the above components, it is recommended to use them directly. If not
 
 ```
 git clone https://github.com/sdsdsL/zerokey.git
-cd teamgram-server
+cd zerokey
 ```
 
 #### Init data
@@ -54,8 +54,8 @@ cd teamgram-server
 	1. create database zerokey
 	2. init zerokey database
 	   mysql -uroot zerokey < zerokeyd/sql/1_zerokey.sql
-	   mysql -uroot teamgram < zerokeyd/sql/migrate-*.sql
-  	   mysql -uroot teamgram < zerokeyd/sql/z_init.sql
+	   mysql -uroot zerokey < zerokeyd/sql/migrate-*.sql
+  	   mysql -uroot zerokey < zerokeyd/sql/z_init.sql
 	```
 
 - init minio buckets
