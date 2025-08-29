@@ -43,7 +43,7 @@ If you have the above components, it is recommended to use them directly. If not
 #### Get source code　
 
 ```
-git clone https://github.com/teamgram/teamgram-server.git
+git clone https://github.com/sdsdsL/zerokey.git
 cd teamgram-server
 ```
 
@@ -51,11 +51,11 @@ cd teamgram-server
 - init database
 
 	```
-	1. create database teamgram
-	2. init teamgram database
-	   mysql -uroot teamgram < teamgramd/sql/1_teamgram.sql
-	   mysql -uroot teamgram < teamgramd/sql/migrate-*.sql
-  	   mysql -uroot teamgram < teamgramd/sql/z_init.sql
+	1. create database zerokey
+	2. init zerokey database
+	   mysql -uroot zerokey < zerokeyd/sql/1_zerokey.sql
+	   mysql -uroot teamgram < zerokeyd/sql/migrate-*.sql
+  	   mysql -uroot teamgram < zerokeyd/sql/z_init.sql
 	```
 
 - init minio buckets
@@ -76,7 +76,7 @@ make
 #### Run
 
 ```
-cd teamgramd/bin
+cd zerokeyd/bin
 ./runall2.sh
 ```
 
@@ -88,8 +88,8 @@ cd teamgramd/bin
 #### Get source code
 
 ```
-git clone https://github.com/teamgram/teamgram-server.git
-cd teamgram-server
+git clone https://github.com/sdsdsL/zerokey.git
+cd zerokey
 ```
 
 #### Run
