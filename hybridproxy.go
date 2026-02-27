@@ -2,15 +2,20 @@ package main
 
 import (
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/subtle"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"fmt"
 	"io"
+	"log"
+	"math/big"
 	"net"
 	"time"
 
 	"github.com/quic-go/quic-go"
 	"golang.org/x/crypto/chacha20"
-	"crypto/tls"
 )
 
 // Constants for the protocol
@@ -62,18 +67,22 @@ func (s *SalamanderObfuscator) Obfuscate(data []byte) error {
 	}
 
 	// Apply keystream to data
-	stream.XORKeyStream(data, data)
+	obfuscatedPayload := make([]byte, len(data))
+	stream.XORKeyStream(obfuscatedPayload, data)
 	
 	// Prepend nonce for deobfuscation
-	obfuscatedData := make([]byte, len(nonce)+len(data))
+	obfuscatedData := make([]byte, len(nonce)+len(obfuscatedPayload))
 	copy(obfuscatedData[:12], nonce)
-	copy(obfuscatedData[12:], data)
+	copy(obfuscatedData[12:], obfuscatedPayload)
 	
-	// Replace original data slice (this is simplified - in real impl we'd return new slice)
-	copy(data[:12], nonce)
-	copy(data[12:], data[12:])
-	
-	return nil
+	// Copy back to original slice if large enough, otherwise return error
+	if len(data) >= len(obfuscatedData) {
+		copy(data[:len(obfuscatedData)], obfuscatedData)
+		return nil
+	} else {
+		// If the original data slice is too small, return an error
+		return fmt.Errorf("data buffer too small for obfuscated data")
+	}
 }
 
 // Deobfuscate reverses the salamander scrambling
@@ -199,7 +208,11 @@ func NewHybridProxyClient(config *HybridProxyConfig) *HybridProxyClient {
 // Connect establishes connection to server
 func (c *HybridProxyClient) Connect() error {
 	// Create QUIC session (with uTLS mimicry in real implementation)
-	session, err := quic.DialAddr(c.config.ServerAddr, nil, &quic.Config{})
+	tlsConf := &tls.Config{
+		InsecureSkipVerify: true, // For self-signed certificates
+		NextProtos:         []string{"hq-29", "h3-29", "h3"}, // Match server
+	}
+	session, err := quic.DialAddr(c.config.ServerAddr, &quic.Config{}, tlsConf)
 	if err != nil {
 		return err
 	}
@@ -377,45 +390,99 @@ func (s *HybridProxyServer) handleStream(stream quic.Stream) {
 // Helper function to generate TLS config (simplified)
 func generateTLSConfig() *tls.Config {
 	// In real implementation, this would use uTLS with randomized fingerprints
+	cert := generateCertificate()
 	return &tls.Config{
-		Certificates: []tls.Certificate{generateCertificate()}, // Placeholder
+		Certificates: []tls.Certificate{cert},
+		NextProtos:   []string{"hq-29", "h3-29", "h3"}, // Common QUIC ALPN values
 	}
 }
 
 func generateCertificate() tls.Certificate {
-	// Generate self-signed certificate for demonstration
-	// Real implementation would use proper certificate management
-	return tls.Certificate{} // Placeholder
+	// Generate a self-signed certificate
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		log.Fatal("Failed to generate private key:", err)
+	}
+
+	notBefore := time.Now()
+	notAfter := notBefore.Add(365 * 24 * time.Hour) // Valid for 1 year
+
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Organization: []string{"HybridProxy"},
+		},
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		DNSNames:              []string{"localhost"},
+		IPAddresses:           []net.IP{net.IPv4(127, 0, 0, 1)},
+	}
+
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
+	if err != nil {
+		log.Fatal("Failed to create certificate:", err)
+	}
+
+	return tls.Certificate{
+		Certificate: [][]byte{derBytes},
+		PrivateKey:  priv,
+	}
 }
 
 // Example usage
 func main() {
 	config := &HybridProxyConfig{
 		Password:   []byte("my-secret-password"),
-		ServerAddr: ":8443",
+		ServerAddr: "localhost:8443",
 		EnableObfs: true,
 	}
 
-	// Server setup
+	// Start server in a goroutine
 	server := NewHybridProxyServer(config)
 	err := server.Listen()
 	if err != nil {
-		panic(err)
+		log.Fatal("Server failed to start:", err)
 	}
+	log.Println("Server started on", config.ServerAddr)
 
-	// Client setup
+	// Give server a moment to start
+	time.Sleep(100 * time.Millisecond)
+
+	// Start client
 	client := NewHybridProxyClient(config)
 	err = client.Connect()
 	if err != nil {
-		panic(err)
+		log.Fatal("Client failed to connect:", err)
 	}
+	log.Println("Client connected to server")
 
 	// Example: Connect to google.com through proxy
 	conn, err := client.OpenStream("google.com:443")
 	if err != nil {
-		panic(err)
+		log.Fatal("Failed to open stream:", err)
+	}
+	log.Println("Stream opened to google.com:443")
+
+	// Send a simple HTTPS request
+	request := "GET / HTTP/1.1\r\nHost: google.com\r\nConnection: close\r\n\r\n"
+	_, err = conn.Write([]byte(request))
+	if err != nil {
+		log.Fatal("Failed to write request:", err)
+	}
+	log.Println("Request sent")
+
+	// Read response
+	response := make([]byte, 1024)
+	n, err := conn.Read(response)
+	if err != nil && err != io.EOF {
+		log.Println("Error reading response:", err)
+	} else {
+		log.Printf("Received %d bytes: %.100s", n, string(response[:n]))
 	}
 
-	// Now conn can be used as a regular net.Conn to communicate with google.com
-	// through the proxy
+	// Clean up
+	conn.Close()
 }

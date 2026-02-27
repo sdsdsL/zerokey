@@ -1,15 +1,9 @@
 ```
-# Compiled and build artifacts
-*.o
-*.obj
-*.out
-# Dependencies
-vendor/
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-# Environment
+# Compressed files
+*.gz
+*.tar.gz
+
+# Environment files
 .env
 .env.local
 *.env.*
